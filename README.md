@@ -1,4 +1,4 @@
-# 🌐 LocalChat
+# 🌐 LoTalk
 
 > Real-time chat app for your local WiFi network. No internet required.
 
