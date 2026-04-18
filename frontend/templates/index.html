@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>LocalChat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     JOIN SCREEN
+════════════════════════════════════════════ -->
+<div id="join-screen" class="join-screen">
+  <div class="join-card">
+    <div class="join-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 4C11.16 4 4 10.72 4 19C4 22.08 4.96 24.96 6.6 27.36L4.08 35.2L12.4 32.76C14.68 34.16 17.24 35 20 35C28.84 35 36 28.28 36 20C36 11.72 28.84 4 20 4Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2"/>
+          <circle cx="13" cy="19" r="2.5" fill="currentColor"/>
+          <circle cx="20" cy="19" r="2.5" fill="currentColor"/>
+          <circle cx="27" cy="19" r="2.5" fill="currentColor"/>
+        </svg>
+      </div>
+    </div>
+    <h1 class="join-title">LocalChat</h1>
+    <p class="join-subtitle">Connect with everyone on your network</p>
+
+    <div class="join-form">
+      <div class="input-group">
+        <label for="username-input">Your Name</label>
+        <input
+          type="text"
+          id="username-input"
+          placeholder="Enter your name..."
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        />
+        <span class="input-hint">Letters, numbers, _ and - only</span>
+      </div>
+      <div id="join-error" class="join-error hidden"></div>
+      <button id="join-btn" class="join-btn">
+        <span>Join Chat</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="join-footer">
+      <div class="wifi-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
+        </svg>
+        Local Network Only
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     CHAT SCREEN
+════════════════════════════════════════════ -->
+<div id="chat-screen" class="chat-screen hidden">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="app-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 4C11.16 4 4 10.72 4 19C4 22.08 4.96 24.96 6.6 27.36L4.08 35.2L12.4 32.76C14.68 34.16 17.24 35 20 35C28.84 35 36 28.28 36 20C36 11.72 28.84 4 20 4Z" fill="currentColor" fill-opacity="0.2" stroke="currentColor" stroke-width="2"/>
+            <circle cx="13" cy="19" r="2.5" fill="currentColor"/>
+            <circle cx="20" cy="19" r="2.5" fill="currentColor"/>
+            <circle cx="27" cy="19" r="2.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <span>LocalChat</span>
+      </div>
+      <button class="sidebar-close" id="sidebar-close">✕</button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="you-card">
+        <div class="you-avatar" id="you-avatar">?</div>
+        <div>
+          <div class="you-name" id="you-name">You</div>
+          <div class="you-status">
+            <span class="status-dot"></span> Online
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">
+        Online Users
+        <span class="user-count" id="user-count">0</span>
+      </div>
+      <div class="user-list" id="user-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <div class="sidebar-section sidebar-footer-section">
+      <div class="connection-info" id="connection-info">
+        <div class="conn-dot"></div>
+        <span id="conn-status-text">Connecting...</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Chat -->
+  <main class="chat-main">
+
+    <!-- Top Bar -->
+    <header class="chat-header">
+      <button class="menu-btn" id="menu-btn">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="chat-header-info">
+        <div class="chat-room-name">General Chat</div>
+        <div class="chat-online-count"><span id="header-count">0</span> online</div>
+      </div>
+      <div class="header-actions">
+        <div class="conn-indicator" id="conn-indicator" title="Connection Status">
+          <div class="conn-dot-small disconnected"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Typing Indicator -->
+    <div class="typing-bar" id="typing-bar">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      <span id="typing-text"></span>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-container" id="messages-container">
+      <div class="messages-welcome">
+        <div class="welcome-icon">👋</div>
+        <div>Welcome to LocalChat</div>
+        <div class="welcome-sub">Messages are only visible while the server is running</div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="pm-target-bar hidden" id="pm-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        DM to <strong id="pm-target-name"></strong>
+        <button id="pm-cancel" title="Cancel DM">✕</button>
+      </div>
+      <div class="input-row">
+        <textarea
+          id="message-input"
+          placeholder="Type a message..."
+          rows="1"
+          maxlength="1000"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        ></textarea>
+        <button id="send-btn" class="send-btn" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Notification sound (generated via JS) -->
+<audio id="notif-sound" preload="auto"></audio>
+
+<script src="/static/js/chat.js"></script>
+</body>
+</html>
