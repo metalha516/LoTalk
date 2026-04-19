@@ -8,6 +8,7 @@ import subprocess
 import sys
 import socket
 import os
+import qrcode  
 
 BANNER = """
 
@@ -54,6 +55,12 @@ def start_server():
     print(f"Share this URL: http://{ip}:{port}")
     print(f"Open locally  : http://localhost:{port}")
     print("═" * 45)
+    
+    qr = qrcode.QRCode(version=1, box_size=1, border=1)
+    qr.add_data(f"http://{ip}:{port}")
+    qr.make()
+    qr.print_ascii(invert=True)
+    
     print("  On OTHER devices: open browser → type the URL above")
     print("  Press Ctrl+C to stop the server")
     print("═" * 45 + "\n")
