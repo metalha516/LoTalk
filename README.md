@@ -123,8 +123,26 @@ All UI changes, WebSocket payloads, and file uploads are dispatched based on mut
 * A local WiFi or Ethernet network.
 
 ### Instant Start (Recommended)
+
+#### On Windows:
+Simply double-click [run.bat](file:///d:/Project/LoTalk/run.bat) or run it from your terminal:
+```cmd
+run.bat
+```
+This script automatically:
+1. Verifies that Python is installed.
+2. Checks for and creates a Python virtual environment (`.venv`) if one does not exist.
+3. Automatically upgrades `pip` and installs/updates all required packages inside the virtual environment.
+4. Boots up the server and prints a QR code in the terminal.
+
+#### On macOS / Linux:
 From the project root directory, run:
 ```bash
+# Optional: Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Start the application
 python start.py
 ```
 This script automatically:
@@ -136,13 +154,18 @@ This script automatically:
 ### Manual Start
 If you prefer to run steps manually:
 ```bash
-# 1. Install requirements
+# 1. Create and activate a virtual environment
+python -m venv .venv
+# On Windows:
+.venv\Scripts\activate
+# On macOS/Linux:
+source .venv/bin/activate
+
+# 2. Install requirements
 pip install -r backend/requirements.txt
 
-# 2. Navigate to backend directory
+# 3. Navigate to backend directory and start Uvicorn
 cd backend
-
-# 3. Start Uvicorn pointing to FastAPI app
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
