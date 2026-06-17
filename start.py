@@ -8,7 +8,6 @@ import subprocess
 import sys
 import socket
 import os
-import qrcode  
 
 BANNER = """
 
@@ -46,6 +45,8 @@ def check_and_install():
 def start_server():
     print(BANNER)
     check_and_install()
+
+    import qrcode
 
     ip = get_local_ip()
     port = 8000

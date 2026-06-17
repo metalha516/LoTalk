@@ -10,6 +10,9 @@ const State = {
   isTyping: false,
   pmTarget: null,           // null = public, "name" = private DM
   typingUsers: new Set(),
+  avatarUrl: "",            // profile picture URL on server
+  avatarFile: null,         // local avatar File object
+  selectedFile: null,       // local attachment File object
 };
 
 
@@ -47,6 +50,28 @@ const DOM = {
   menuBtn:          $("menu-btn"),
   sidebarClose:     $("sidebar-close"),
   notifSound:       $("notif-sound"),
+
+  // New elements
+  joinAvatarPreview:$("join-avatar-preview"),
+  joinAvatarInput:  $("join-avatar-input"),
+  sidebarAvatarInput:$("sidebar-avatar-input"),
+  attachBtn:        $("attach-btn"),
+  fileInput:        $("file-input"),
+  attachmentPreviewBar:$("attachment-preview-bar"),
+  previewContent:   $("preview-content"),
+  attachmentCancel: $("attachment-cancel"),
+  lightboxModal:    $("lightbox-modal"),
+  lightboxImg:      $("lightbox-img"),
+  lightboxCaption:  $("lightbox-caption"),
+  closeLightbox:    $("close-lightbox"),
+
+  shareBtn:          $("share-btn"),
+  joinShareBtn:      $("join-share-btn"),
+  shareModal:        $("share-modal"),
+  closeShare:        $("close-share"),
+  shareLinkInput:    $("share-link-input"),
+  shareCopyBtn:      $("share-copy-btn"),
+  shareQrImg:        $("share-qr-img"),
 };
 
 
@@ -132,9 +157,60 @@ function appendSystemMessage(text) {
   scrollToBottom();
 }
 
-function appendMessage({ from, text, timestamp, type, self, to }) {
+function createAvatarElement(username, avatarUrl, sizeClass = "") {
+  const el = document.createElement("div");
+  el.className = `avatar-el ${sizeClass}`;
+  if (avatarUrl) {
+    el.style.backgroundImage = `url(${avatarUrl})`;
+    el.style.backgroundSize = "cover";
+    el.style.backgroundPosition = "center";
+    el.textContent = "";
+  } else {
+    el.className += ` ${hashColor(username)}`;
+    el.textContent = initials(username);
+    el.style.backgroundImage = "";
+  }
+  return el;
+}
+
+function updateSidebarAvatar(username, avatarUrl) {
+  const initialsEl = DOM.youAvatar.querySelector(".avatar-initials");
+  if (avatarUrl) {
+    DOM.youAvatar.style.backgroundImage = `url(${avatarUrl})`;
+    DOM.youAvatar.style.backgroundSize = "cover";
+    DOM.youAvatar.style.backgroundPosition = "center";
+    if (initialsEl) initialsEl.style.display = "none";
+  } else {
+    DOM.youAvatar.style.backgroundImage = "";
+    if (initialsEl) {
+      initialsEl.textContent = initials(username);
+      initialsEl.style.display = "inline-block";
+    }
+    DOM.youAvatar.className = `you-avatar editable ${hashColor(username)}`;
+  }
+}
+
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+function appendMessage({ from, avatar, text, file, timestamp, type, self, to }, playSound = true, smoothScroll = true) {
   const isOwn = from === State.username;
   const isPM  = type === "private";
+
+  const row = document.createElement("div");
+  row.className = `msg-row ${isOwn ? "sent" : "received"}`;
+
+  const avContainer = document.createElement("div");
+  avContainer.className = "msg-avatar-container";
+  const avEl = createAvatarElement(from, avatar);
+  avContainer.appendChild(avEl);
+  row.appendChild(avContainer);
 
   const wrapper = document.createElement("div");
   wrapper.className = `msg-wrapper ${isOwn ? "sent" : "received"} ${isPM ? "pm" : ""}`;
@@ -150,7 +226,57 @@ function appendMessage({ from, text, timestamp, type, self, to }) {
 
   const bubble = document.createElement("div");
   bubble.className = "msg-bubble";
-  bubble.innerHTML = sanitize(text).replace(/\n/g, "<br>");
+
+  if (text) {
+    const textSpan = document.createElement("span");
+    textSpan.innerHTML = sanitize(text).replace(/\n/g, "<br>");
+    bubble.appendChild(textSpan);
+  }
+
+  if (file) {
+    const fileDiv = document.createElement("div");
+    
+    if (file.type && file.type.startsWith("image/")) {
+      const img = document.createElement("img");
+      img.src = file.url;
+      img.className = "msg-image-attachment";
+      img.alt = file.name;
+      img.title = "Click to view fullscreen";
+      img.addEventListener("click", () => {
+        showLightbox(file.url, file.name);
+      });
+      fileDiv.appendChild(img);
+    } else if (file.type && file.type.startsWith("video/")) {
+      const video = document.createElement("video");
+      video.src = file.url;
+      video.controls = true;
+      video.className = "msg-video-attachment";
+      fileDiv.appendChild(video);
+    } else if (file.type && file.type.startsWith("audio/")) {
+      const audio = document.createElement("audio");
+      audio.src = file.url;
+      audio.controls = true;
+      audio.className = "msg-audio-attachment";
+      fileDiv.appendChild(audio);
+    } else {
+      fileDiv.className = "msg-file-attachment";
+      fileDiv.innerHTML = `
+        <div class="file-icon">📁</div>
+        <div class="file-info">
+          <span class="file-name">${sanitize(file.name)}</span>
+          <span class="file-size">${formatBytes(file.size)}</span>
+        </div>
+        <a href="${file.url}" download="${sanitize(file.name)}" class="file-download-btn" title="Download file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+        </a>
+      `;
+    }
+    
+    bubble.appendChild(fileDiv);
+  }
+
   wrapper.appendChild(bubble);
 
   const meta = document.createElement("div");
@@ -165,11 +291,11 @@ function appendMessage({ from, text, timestamp, type, self, to }) {
   }
 
   wrapper.appendChild(meta);
-  DOM.messagesContainer.appendChild(wrapper);
-  scrollToBottom();
+  row.appendChild(wrapper);
+  DOM.messagesContainer.appendChild(row);
+  scrollToBottom(smoothScroll);
 
-  // Play sound for incoming messages
-  if (!isOwn) {
+  if (!isOwn && playSound) {
     playNotifSound();
   }
 }
@@ -179,18 +305,16 @@ function renderUserList(users) {
   DOM.userCount.textContent = users.length;
   DOM.headerCount.textContent = users.length;
 
-  users.forEach(name => {
+  users.forEach(({ username, avatar }) => {
     const item = document.createElement("div");
-    item.className = `user-item${name === State.username ? " you" : ""}`;
-    item.dataset.username = name;
+    item.className = `user-item${username === State.username ? " you" : ""}`;
+    item.dataset.username = username;
 
-    const av = document.createElement("div");
-    av.className = `user-item-avatar ${hashColor(name)}`;
-    av.textContent = initials(name);
+    const av = createAvatarElement(username, avatar, "user-item-avatar");
 
     const nm = document.createElement("div");
     nm.className = "user-item-name";
-    nm.textContent = name + (name === State.username ? " (you)" : "");
+    nm.textContent = username + (username === State.username ? " (you)" : "");
 
     const dm = document.createElement("div");
     dm.className = "user-item-dm";
@@ -198,12 +322,11 @@ function renderUserList(users) {
 
     item.appendChild(av);
     item.appendChild(nm);
-    if (name !== State.username) item.appendChild(dm);
+    if (username !== State.username) item.appendChild(dm);
 
-    // Click to start DM
     item.addEventListener("click", () => {
-      if (name !== State.username) {
-        setPMTarget(name);
+      if (username !== State.username) {
+        setPMTarget(username);
         closeSidebar();
       }
     });
@@ -245,9 +368,135 @@ function clearPMTarget() {
 
 
 
-function connectWS(username) {
+async function uploadFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: formData
+  });
+  if (!res.ok) throw new Error("Upload failed");
+  return await res.json();
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.size > 50 * 1024 * 1024) {
+    alert("File size exceeds 50MB limit.");
+    DOM.fileInput.value = "";
+    return;
+  }
+
+  State.selectedFile = file;
+  DOM.attachmentPreviewBar.classList.remove("hidden");
+  DOM.previewContent.innerHTML = "";
+
+  if (file.type && file.type.startsWith("image/")) {
+    const img = document.createElement("img");
+    img.src = URL.createObjectURL(file);
+    img.className = "preview-thumb";
+    img.onload = () => URL.revokeObjectURL(img.src);
+    DOM.previewContent.appendChild(img);
+  }
+
+  const details = document.createElement("div");
+  details.className = "preview-file-card";
+  details.innerHTML = `
+    <div class="preview-file-details">
+      <span class="preview-file-name">${sanitize(file.name)}</span>
+      <span class="preview-file-size">${formatBytes(file.size)}</span>
+    </div>
+  `;
+  DOM.previewContent.appendChild(details);
+
+  DOM.sendBtn.disabled = false;
+}
+
+function clearAttachment() {
+  State.selectedFile = null;
+  DOM.fileInput.value = "";
+  DOM.attachmentPreviewBar.classList.add("hidden");
+  DOM.previewContent.innerHTML = "";
+  DOM.sendBtn.disabled = DOM.messageInput.value.trim().length === 0;
+}
+
+function handleJoinAvatarSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert("Avatar image size exceeds 5MB limit.");
+    DOM.joinAvatarInput.value = "";
+    return;
+  }
+
+  State.avatarFile = file;
+
+  DOM.joinAvatarPreview.innerHTML = "";
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(file);
+  img.onload = () => URL.revokeObjectURL(img.src);
+  DOM.joinAvatarPreview.appendChild(img);
+
+  const overlay = document.createElement("div");
+  overlay.className = "avatar-picker-overlay";
+  overlay.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>
+  `;
+  DOM.joinAvatarPreview.appendChild(overlay);
+}
+
+async function handleSidebarAvatarSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert("Avatar image size exceeds 5MB limit.");
+    DOM.sidebarAvatarInput.value = "";
+    return;
+  }
+
+  try {
+    const uploadRes = await uploadFile(file);
+    const avatarUrl = uploadRes.url;
+    State.avatarUrl = avatarUrl;
+
+    updateSidebarAvatar(State.username, avatarUrl);
+
+    if (State.connected) {
+      State.ws.send(JSON.stringify({
+        type: "update_avatar",
+        avatar: avatarUrl
+      }));
+    }
+  } catch (e) {
+    alert("Failed to update avatar: " + e.message);
+  }
+}
+
+function showLightbox(url, caption) {
+  DOM.lightboxImg.src = url;
+  DOM.lightboxCaption.textContent = caption;
+  DOM.lightboxModal.classList.remove("hidden");
+}
+
+function hideLightbox() {
+  DOM.lightboxModal.classList.add("hidden");
+  DOM.lightboxImg.src = "";
+  DOM.lightboxCaption.textContent = "";
+}
+
+function connectWS(username, avatarUrl = "") {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  const url = `${protocol}//${location.host}/ws/${encodeURIComponent(username)}`;
+  let url = `${protocol}//${location.host}/ws/${encodeURIComponent(username)}`;
+  if (avatarUrl) {
+    url += `?avatar=${encodeURIComponent(avatarUrl)}`;
+  }
 
   setConnectionStatus("connecting");
 
@@ -268,10 +517,14 @@ function connectWS(username) {
 
       case "welcome":
         renderUserList(msg.users || []);
+        if (msg.history && Array.isArray(msg.history)) {
+          msg.history.forEach(historyMsg => {
+            appendMessage(historyMsg, false, false);
+          });
+        }
         break;
 
       case "error":
-        // Show error on join screen if not yet in chat
         if (DOM.joinScreen && !DOM.joinScreen.classList.contains("hidden")) {
           showJoinError(msg.message);
         }
@@ -320,27 +573,59 @@ function connectWS(username) {
   };
 }
 
-function sendMessage() {
+async function sendMessage() {
   const text = DOM.messageInput.value.trim();
-  if (!text || !State.connected) return;
+  if (!text && !State.selectedFile) return;
+  if (!State.connected) return;
+
+  DOM.sendBtn.disabled = true;
+  DOM.messageInput.disabled = true;
+
+  let filePayload = null;
+  try {
+    if (State.selectedFile) {
+      const uploadRes = await uploadFile(State.selectedFile);
+      filePayload = {
+        url: uploadRes.url,
+        name: uploadRes.name,
+        type: uploadRes.type,
+        size: uploadRes.size
+      };
+    }
+  } catch (e) {
+    alert("Failed to upload file: " + e.message);
+    DOM.sendBtn.disabled = false;
+    DOM.messageInput.disabled = false;
+    return;
+  }
+
+  const payload = {
+    text
+  };
+  if (filePayload) {
+    payload.file = filePayload;
+  }
 
   if (State.pmTarget) {
     State.ws.send(JSON.stringify({
       type: "private",
       to: State.pmTarget,
-      text
+      ...payload
     }));
   } else {
     State.ws.send(JSON.stringify({
       type: "message",
-      text
+      ...payload
     }));
   }
 
+  clearAttachment();
   DOM.messageInput.value = "";
-  DOM.sendBtn.disabled = true;
+  DOM.messageInput.disabled = false;
   DOM.messageInput.style.height = "auto";
+  DOM.sendBtn.disabled = true;
   stopTyping();
+  DOM.messageInput.focus();
 }
 
 function startTyping() {
@@ -388,7 +673,7 @@ DOM.usernameInput.addEventListener("keydown", e => {
 });
 DOM.usernameInput.addEventListener("input", hideJoinError);
 
-function handleJoin() {
+async function handleJoin() {
   const name = DOM.usernameInput.value.trim();
   if (!name) {
     showJoinError("Please enter a name.");
@@ -403,11 +688,29 @@ function handleJoin() {
     return;
   }
 
+  DOM.joinBtn.disabled = true;
+  const btnSpan = DOM.joinBtn.querySelector("span");
+  const oldText = btnSpan.textContent;
+  btnSpan.textContent = "Connecting...";
+
   State.username = name;
 
+  let avatarUrl = "";
+  if (State.avatarFile) {
+    try {
+      const uploadRes = await uploadFile(State.avatarFile);
+      avatarUrl = uploadRes.url;
+      State.avatarUrl = avatarUrl;
+    } catch (e) {
+      showJoinError("Failed to upload avatar: " + e.message);
+      DOM.joinBtn.disabled = false;
+      btnSpan.textContent = oldText;
+      return;
+    }
+  }
+
   // Show avatar in sidebar
-  DOM.youAvatar.textContent = initials(name);
-  DOM.youAvatar.className = `you-avatar ${hashColor(name)}`;
+  updateSidebarAvatar(name, avatarUrl);
   DOM.youName.textContent = name;
 
   // Switch screens
@@ -415,7 +718,7 @@ function handleJoin() {
   DOM.chatScreen.classList.remove("hidden");
 
   // Connect WS
-  connectWS(name);
+  connectWS(name, avatarUrl);
 
   // Focus input
   setTimeout(() => DOM.messageInput.focus(), 100);
@@ -425,7 +728,6 @@ function handleJoin() {
 DOM.sendBtn.addEventListener("click", sendMessage);
 
 DOM.messageInput.addEventListener("keydown", e => {
-  // Send on Enter (not Shift+Enter)
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     sendMessage();
@@ -435,7 +737,7 @@ DOM.messageInput.addEventListener("keydown", e => {
 
 DOM.messageInput.addEventListener("input", () => {
   autoResize(DOM.messageInput);
-  DOM.sendBtn.disabled = DOM.messageInput.value.trim().length === 0;
+  DOM.sendBtn.disabled = DOM.messageInput.value.trim().length === 0 && !State.selectedFile;
   startTyping();
 });
 
@@ -446,6 +748,71 @@ DOM.pmCancel.addEventListener("click", clearPMTarget);
 DOM.menuBtn.addEventListener("click", openSidebar);
 DOM.sidebarClose.addEventListener("click", closeSidebar);
 
+// New Event Listeners
+DOM.joinAvatarPreview.addEventListener("click", () => DOM.joinAvatarInput.click());
+DOM.joinAvatarInput.addEventListener("change", handleJoinAvatarSelect);
+DOM.youAvatar.addEventListener("click", () => DOM.sidebarAvatarInput.click());
+DOM.sidebarAvatarInput.addEventListener("change", handleSidebarAvatarSelect);
+
+DOM.attachBtn.addEventListener("click", () => DOM.fileInput.click());
+DOM.fileInput.addEventListener("change", handleFileSelect);
+DOM.attachmentCancel.addEventListener("click", clearAttachment);
+
+DOM.closeLightbox.addEventListener("click", hideLightbox);
+DOM.lightboxModal.addEventListener("click", e => {
+  if (e.target === DOM.lightboxModal) hideLightbox();
+});
+
+// Share Modal Functions
+async function openShareModal() {
+  try {
+    const res = await fetch("/api/server-info");
+    const info = await res.json();
+    const inviteUrl = `http://${info.ip}:${info.port}`;
+    DOM.shareLinkInput.value = inviteUrl;
+  } catch (e) {
+    DOM.shareLinkInput.value = window.location.origin;
+  }
+  DOM.shareQrImg.src = "/api/qr?t=" + Date.now();
+  DOM.shareModal.classList.remove("hidden");
+}
+
+function closeShareModal() {
+  DOM.shareModal.classList.add("hidden");
+}
+
+function copyShareLink() {
+  const link = DOM.shareLinkInput.value;
+  navigator.clipboard.writeText(link).then(() => {
+    const btnSpan = DOM.shareCopyBtn.querySelector("span");
+    const oldText = btnSpan.textContent;
+    btnSpan.textContent = "Copied!";
+    DOM.shareCopyBtn.style.background = "var(--accent-dark)";
+    setTimeout(() => {
+      btnSpan.textContent = oldText;
+      DOM.shareCopyBtn.style.background = "";
+    }, 2000);
+  }).catch(err => {
+    console.error("Failed to copy link: ", err);
+  });
+}
+
+DOM.shareBtn.addEventListener("click", openShareModal);
+if (DOM.joinShareBtn) {
+  DOM.joinShareBtn.addEventListener("click", openShareModal);
+}
+DOM.closeShare.addEventListener("click", closeShareModal);
+DOM.shareCopyBtn.addEventListener("click", copyShareLink);
+DOM.shareModal.addEventListener("click", e => {
+  if (e.target === DOM.shareModal) closeShareModal();
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    hideLightbox();
+    closeShareModal();
+  }
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   DOM.usernameInput.focus();

@@ -7,13 +7,18 @@ import asyncio
 import json
 import socket
 import logging
+import os
+import uuid
+import shutil
+import io
+import qrcode
 from datetime import datetime
 from typing import Dict, Set, Optional
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 import uvicorn
 
 
@@ -46,8 +51,18 @@ class ConnectionManager:
         self.active_connections: Dict[str, WebSocket] = {}
         # Maps username -> typing status
         self.typing_users: Set[str] = set()
+        # Maps username -> avatar URL (or None)
+        self.avatars: Dict[str, Optional[str]] = {}
+        # Stores last 100 public chat messages
+        self.message_history = []
 
-    async def connect(self, websocket: WebSocket, username: str) -> bool:
+    def add_to_history(self, message: dict):
+        """Append a public chat message to the history buffer, capping at 100 messages."""
+        self.message_history.append(message)
+        if len(self.message_history) > 100:
+            self.message_history.pop(0)
+
+    async def connect(self, websocket: WebSocket, username: str, avatar: Optional[str] = None) -> bool:
         """Accept a new WebSocket connection and register user."""
         await websocket.accept()
         if username in self.active_connections:
@@ -60,6 +75,8 @@ class ConnectionManager:
             return False
 
         self.active_connections[username] = websocket
+        if avatar:
+            self.avatars[username] = avatar
         logger.info(f"[+] {username} connected | Total users: {len(self.active_connections)}")
         return True
 
@@ -67,6 +84,8 @@ class ConnectionManager:
         """Remove user from active connections."""
         if username in self.active_connections:
             del self.active_connections[username]
+        if username in self.avatars:
+            del self.avatars[username]
         self.typing_users.discard(username)
         logger.info(f"[-] {username} disconnected | Total users: {len(self.active_connections)}")
 
@@ -101,9 +120,10 @@ class ConnectionManager:
 
     async def broadcast_user_list(self):
         """Notify all users of the updated user list."""
+        users_info = [{"username": name, "avatar": self.avatars.get(name)} for name in self.get_user_list()]
         await self.broadcast({
             "type": "user_list",
-            "users": self.get_user_list(),
+            "users": users_info,
             "count": len(self.active_connections)
         })
 
@@ -142,8 +162,9 @@ async def index(request: Request):
 @app.get("/api/users")
 async def get_users():
     """REST endpoint to get current user list."""
+    users_info = [{"username": name, "avatar": manager.avatars.get(name)} for name in manager.get_user_list()]
     return {
-        "users": manager.get_user_list(),
+        "users": users_info,
         "count": len(manager.active_connections)
     }
 
@@ -155,6 +176,47 @@ async def server_info():
         "ip": get_local_ip(),
         "port": 8000,
         "version": "1.0.0"
+    }
+
+
+@app.get("/api/qr")
+async def get_qr_code():
+    """Generate an SVG QR code pointing to the LAN invite URL."""
+    ip = get_local_ip()
+    url = f"http://{ip}:8000"
+    
+    import qrcode.image.svg
+    factory = qrcode.image.svg.SvgImage
+    img = qrcode.make(url, image_factory=factory)
+    
+    stream = io.BytesIO()
+    img.save(stream)
+    svg_content = stream.getvalue()
+    
+    return Response(content=svg_content, media_type="image/svg+xml")
+
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload file and return its static URL and metadata."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    uploads_dir = os.path.join(base_dir, "..", "frontend", "static", "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    
+    ext = os.path.splitext(file.filename)[1]
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(uploads_dir, unique_name)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    file_size = os.path.getsize(file_path)
+    
+    return {
+        "url": f"/static/uploads/{unique_name}",
+        "name": file.filename,
+        "type": file.content_type,
+        "size": file_size
     }
 
 
@@ -171,8 +233,11 @@ async def websocket_endpoint(websocket: WebSocket, username: str):
         await websocket.close()
         return
 
+    # Get optional avatar URL from query parameters
+    avatar = websocket.query_params.get("avatar")
+
     # Register connection
-    connected = await manager.connect(websocket, username)
+    connected = await manager.connect(websocket, username, avatar)
     if not connected:
         return
 
@@ -187,10 +252,12 @@ async def websocket_endpoint(websocket: WebSocket, username: str):
     await manager.broadcast_user_list()
 
     # Send welcome message to new user
+    users_info = [{"username": name, "avatar": manager.avatars.get(name)} for name in manager.get_user_list()]
     await manager.send_to_user(username, {
         "type": "welcome",
         "message": f"Welcome, {username}! You are connected.",
-        "users": manager.get_user_list(),
+        "users": users_info,
+        "history": manager.message_history,
         "timestamp": make_timestamp()
     })
 
@@ -209,30 +276,40 @@ async def websocket_endpoint(websocket: WebSocket, username: str):
             # ── Public Message ──────────────────────────
             if msg_type == "message":
                 text = data.get("text", "").strip()
-                if not text or len(text) > 1000:
+                file_data = data.get("file")
+                if not text and not file_data:
+                    continue
+                if len(text) > 1000:
                     continue
 
-                logger.info(f"[MSG] {username}: {text[:60]}")
+                logger.info(f"[MSG] {username}: {text[:60] or '[File]'}")
 
-                await manager.broadcast({
+                msg_payload = {
                     "type": "message",
                     "from": username,
+                    "avatar": manager.avatars.get(username),
                     "text": text,
+                    "file": file_data,
                     "timestamp": make_timestamp()
-                })
+                }
+                manager.add_to_history(msg_payload)
+                await manager.broadcast(msg_payload)
 
             # ── Private Message ─────────────────────────
             elif msg_type == "private":
                 target = data.get("to", "").strip()
                 text = data.get("text", "").strip()
-                if not text or not target or target == username:
+                file_data = data.get("file")
+                if (not text and not file_data) or not target or target == username:
                     continue
 
                 pm_payload = {
                     "type": "private",
                     "from": username,
                     "to": target,
+                    "avatar": manager.avatars.get(username),
                     "text": text,
+                    "file": file_data,
                     "timestamp": make_timestamp()
                 }
 
@@ -248,6 +325,15 @@ async def websocket_endpoint(websocket: WebSocket, username: str):
                         "message": f"⚠️ {target} is not online.",
                         "timestamp": make_timestamp()
                     })
+
+            # ── Update Avatar ───────────────────────────
+            elif msg_type == "update_avatar":
+                avatar_url = data.get("avatar", "").strip()
+                if avatar_url:
+                    manager.avatars[username] = avatar_url
+                else:
+                    manager.avatars.pop(username, None)
+                await manager.broadcast_user_list()
 
             # ── Typing Indicator ────────────────────────
             elif msg_type == "typing":

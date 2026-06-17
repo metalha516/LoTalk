@@ -193,6 +193,7 @@ html, body {
 .join-footer {
   display: flex;
   justify-content: center;
+  align-items: center;
   margin-top: 24px;
 }
 
@@ -205,6 +206,35 @@ html, body {
 }
 
 .wifi-badge svg { width: 14px; height: 14px; }
+
+.footer-separator {
+  color: var(--text-muted);
+  margin: 0 8px;
+  align-self: center;
+}
+
+.join-share-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-main);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.join-share-btn:hover {
+  color: var(--accent);
+}
+
+.join-share-btn svg {
+  width: 12px;
+  height: 12px;
+}
 
 
 .chat-screen {
@@ -390,6 +420,9 @@ html, body {
 .user-item:hover .user-item-dm { color: var(--accent); background: rgba(37,211,102,0.1); }
 
 .sidebar-footer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-top: auto;
   border-top: 1px solid var(--border);
   border-bottom: none;
@@ -774,3 +807,579 @@ html, body {
 }
 
 .sidebar-overlay.active { display: block; }
+
+
+/* ─────────────────────────────────────────────
+   AVATAR PICKER & EDITABLE AVATAR STYLES
+   ───────────────────────────────────────────── */
+.avatar-picker-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.avatar-picker-preview {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--bg-input), var(--bg-card));
+  border: 2px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.avatar-picker-preview:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 16px rgba(37, 211, 102, 0.2);
+  transform: translateY(-2px);
+}
+
+.avatar-picker-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-picker-placeholder {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.avatar-picker-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 15, 26, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.avatar-picker-preview:hover .avatar-picker-overlay {
+  opacity: 1;
+}
+
+.avatar-picker-overlay svg {
+  width: 28px;
+  height: 28px;
+}
+
+/* Sidebar Profile Editable Avatar */
+.you-avatar.editable {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.you-avatar.editable:hover {
+  transform: scale(1.05);
+}
+
+.avatar-edit-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.you-avatar.editable:hover .avatar-edit-overlay {
+  opacity: 1;
+}
+
+.avatar-edit-overlay svg {
+  width: 16px;
+  height: 16px;
+}
+
+.avatar-el {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: inherit;
+  font-weight: inherit;
+  color: white;
+  text-transform: uppercase;
+}
+
+/* ─────────────────────────────────────────────
+   MESSAGE ROW & CHAT BUBBLE WITH AVATARS
+   ───────────────────────────────────────────── */
+.msg-row {
+  display: flex;
+  gap: 10px;
+  max-width: 75%;
+  margin-bottom: 12px;
+  animation: msgIn 0.25s cubic-bezier(0.1, 0.8, 0.25, 1);
+  position: relative;
+}
+
+.msg-row.sent {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.msg-row.received {
+  align-self: flex-start;
+}
+
+.msg-row .msg-avatar-container {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-self: flex-end; /* Bottom align next to bubbles */
+  margin-bottom: 2px;
+  overflow: hidden;
+}
+
+.msg-row .msg-avatar-container .avatar-el {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.msg-row .msg-wrapper {
+  max-width: 100%; /* The msg-row controls max-width now */
+}
+
+/* ─────────────────────────────────────────────
+   MEDIA / FILE ATTACHMENTS IN MESSAGES
+   ───────────────────────────────────────────── */
+.msg-image-attachment {
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: var(--radius-md);
+  margin-top: 6px;
+  display: block;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+  object-fit: cover;
+}
+
+.msg-image-attachment:hover {
+  transform: scale(1.015);
+  filter: brightness(0.95);
+}
+
+.msg-video-attachment {
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: var(--radius-md);
+  margin-top: 6px;
+  display: block;
+  outline: none;
+}
+
+.msg-video-attachment:hover {
+  filter: brightness(0.95);
+}
+
+.msg-audio-attachment {
+  width: 100%;
+  max-width: 260px;
+  margin-top: 6px;
+  display: block;
+}
+
+/* Document / file card attachment */
+.msg-file-attachment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-top: 6px;
+  min-width: 240px;
+  max-width: 320px;
+  transition: background 0.15s ease;
+}
+
+.msg-file-attachment:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.file-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0; /* allows text truncation */
+}
+
+.file-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.file-download-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-download-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+  transform: translateY(-1px);
+}
+
+.file-download-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ─────────────────────────────────────────────
+   ATTACHMENT PREVIEW BAR IN INPUT AREA
+   ───────────────────────────────────────────── */
+.attachment-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(30, 45, 64, 0.4);
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border: 1.5px solid var(--border);
+  animation: slideUp 0.2s ease;
+}
+
+.preview-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.preview-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  margin-right: 10px;
+}
+
+.preview-file-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.preview-file-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-file-name {
+  font-weight: 600;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-file-size {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.attachment-cancel {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.15s ease;
+}
+
+.attachment-cancel:hover {
+  color: #f87171;
+}
+
+.attach-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.attach-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--accent);
+}
+
+/* ─────────────────────────────────────────────
+   FULL SCREEN LIGHTBOX MODAL
+   ───────────────────────────────────────────── */
+.lightbox-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background-color: rgba(6, 9, 15, 0.9);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.close-lightbox {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  color: var(--text-secondary);
+  font-size: 40px;
+  font-weight: 300;
+  transition: color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.close-lightbox:hover {
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.lightbox-content {
+  max-width: 90%;
+  max-height: 80%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+  animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+}
+
+@keyframes zoomIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.lightbox-caption {
+  margin-top: 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  max-width: 80%;
+}
+
+/* ─────────────────────────────────────────────
+   LAN SHARE MODAL & SHARE BUTTON STYLES
+   ───────────────────────────────────────────── */
+.share-btn {
+  width: 100%;
+  background: rgba(37, 211, 102, 0.1);
+  border: 1px solid rgba(37, 211, 102, 0.2);
+  color: var(--accent);
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.share-btn:hover {
+  background: rgba(37, 211, 102, 0.18);
+  border-color: var(--accent);
+}
+
+.share-btn:active {
+  transform: scale(0.97);
+}
+
+.share-btn svg {
+  flex-shrink: 0;
+}
+
+.share-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background-color: rgba(6, 9, 15, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.25s ease;
+}
+
+.share-card {
+  position: relative;
+  width: 90%;
+  max-width: 440px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 32px 28px;
+  box-shadow: var(--shadow);
+  animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.close-share {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  color: var(--text-secondary);
+  font-size: 28px;
+  font-weight: 300;
+  transition: color 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.close-share:hover {
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.share-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.share-subtitle {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.qr-container {
+  background: white;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.qr-container img {
+  width: 180px;
+  height: 180px;
+  display: block;
+}
+
+.share-link-group {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  align-items: center;
+}
+
+.share-link-group input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding-left: 10px;
+  min-width: 0;
+}
+
+.share-link-group button {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.share-link-group button:hover {
+  background: var(--accent-dark);
+}
+
+.share-link-group button:active {
+  transform: scale(0.96);
+}
+

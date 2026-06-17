@@ -29,6 +29,19 @@
     <p class="join-subtitle">Connect with everyone on your network</p>
 
     <div class="join-form">
+      <div class="avatar-picker-wrapper">
+        <div class="avatar-picker-preview" id="join-avatar-preview" title="Choose avatar image">
+          <span class="avatar-picker-placeholder">?</span>
+          <div class="avatar-picker-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+        </div>
+        <input type="file" id="join-avatar-input" accept="image/*" class="hidden">
+      </div>
+
       <div class="input-group">
         <label for="username-input">Your Name</label>
         <input
@@ -58,6 +71,16 @@
         </svg>
         Local Network Only
       </div>
+      <span class="footer-separator">&bull;</span>
+      <button id="join-share-btn" class="join-share-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+        </svg>
+        <span>Invite / QR</span>
+      </button>
     </div>
   </div>
 </div>
@@ -86,7 +109,16 @@
 
     <div class="sidebar-section">
       <div class="you-card">
-        <div class="you-avatar" id="you-avatar">?</div>
+        <div class="you-avatar editable" id="you-avatar" title="Change profile picture">
+          <span class="avatar-initials">?</span>
+          <div class="avatar-edit-overlay">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+        </div>
+        <input type="file" id="sidebar-avatar-input" accept="image/*" class="hidden">
         <div>
           <div class="you-name" id="you-name">You</div>
           <div class="you-status">
@@ -111,6 +143,15 @@
         <div class="conn-dot"></div>
         <span id="conn-status-text">Connecting...</span>
       </div>
+      <button class="share-btn" id="share-btn" title="Share room QR Code">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+        </svg>
+        <span>Share Room</span>
+      </button>
     </div>
   </aside>
 
@@ -157,7 +198,20 @@
         DM to <strong id="pm-target-name"></strong>
         <button id="pm-cancel" title="Cancel DM">✕</button>
       </div>
+
+      <!-- Attachment Preview -->
+      <div class="attachment-preview-bar hidden" id="attachment-preview-bar">
+        <div class="preview-content" id="preview-content"></div>
+        <button id="attachment-cancel" class="attachment-cancel" title="Remove attachment">✕</button>
+      </div>
+
       <div class="input-row">
+        <button id="attach-btn" class="attach-btn" title="Attach file or media">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+        <input type="file" id="file-input" class="hidden">
         <textarea
           id="message-input"
           placeholder="Type a message..."
@@ -175,6 +229,37 @@
       </div>
     </div>
   </main>
+</div>
+
+<!-- Lightbox Modal for Image Previews -->
+<div id="lightbox-modal" class="lightbox-modal hidden">
+  <span class="close-lightbox" id="close-lightbox">&times;</span>
+  <img id="lightbox-img" class="lightbox-content" src="" alt="Fullscreen preview">
+  <div id="lightbox-caption" class="lightbox-caption"></div>
+</div>
+
+<!-- Share Room Invitation Modal -->
+<div id="share-modal" class="share-modal hidden">
+  <div class="share-card">
+    <span class="close-share" id="close-share">&times;</span>
+    <h2 class="share-title">Invite to LocalChat</h2>
+    <p class="share-subtitle">Scan the QR code or share the link below to invite devices on the same Wi-Fi/LAN network.</p>
+    
+    <div class="qr-container">
+      <img id="share-qr-img" src="/api/qr" alt="QR Code" />
+    </div>
+    
+    <div class="share-link-group">
+      <input type="text" id="share-link-input" readonly value="" />
+      <button id="share-copy-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+        <span>Copy Link</span>
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Notification sound (generated via JS) -->

@@ -1,154 +1,179 @@
-# 🌐 LoTalk
+# 🌐 LoTalk — Local Network Real-Time Chat
 
-> Real-time chat app for your local WiFi network. No internet required.
+> **A premium, zero-configuration, real-time chat application for local WiFi/LAN networks. No internet connection required.**
+
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Uvicorn](https://img.shields.io/badge/Uvicorn-0.30.1-49005A?style=for-the-badge&logo=python&logoColor=white)](https://www.uvicorn.org/)
+[![WebSockets](https://img.shields.io/badge/WebSockets-Real--Time-010101?style=for-the-badge&logo=websocket&logoColor=white)](#-architecture--data-flow)
+[![Vanilla JS](https://img.shields.io/badge/Vanilla_JS-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](#-client-side-engineering)
+[![HTML5 / CSS3](https://img.shields.io/badge/HTML5_/_CSS3-Premium_UI-E34F26?style=for-the-badge&logo=html5&logoColor=white)](#-ui-ux--design-system)
+
+LoTalk is designed for offline team environments, local workspaces, event venues, or file-sharing between PCs and mobile devices. It enables instant communication and file sharing directly on a local area network (LAN) without routing any data to the public internet.
 
 ---
 
-## 📁 Project Structure
+## 🏗️ Architecture & Data Flow
+
+LoTalk uses an **Event-Driven WebSocket Architecture** paired with standard **REST APIs** for file streaming and system metadata. The diagram below illustrates how client sessions, system messages, public chat, and private messaging (DMs) are routed:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant ClientA as Client 1 (JS / Phone)
+    participant Server as FastAPI Server (Python)
+    participant ClientB as Client 2 (JS / PC)
+
+    Note over ClientA,Server: Connection Setup & Handshake
+    ClientA->>Server: HTTP GET / (Requests HTML/CSS/JS)
+    Server-->>ClientA: Serves Static Web Assets
+    ClientA->>Server: WS Connection established (/ws/Alice)
+    Server-->>ClientA: Welcome Payload (JSON: history data, active user_list)
+    Server->>ClientB: System Broadcast (JSON: "Alice joined the chat 👋")
+    Server->>ClientB: User List Broadcast (JSON: Updated online user roster)
+
+    Note over ClientA,ClientB: Public Broadcast Loop
+    ClientA->>Server: Public Message (JSON: text, file payload)
+    Server->>Server: Write to In-Memory Circular Buffer (Capped at 100)
+    Server->>ClientB: Broadcast Message (JSON: from, text, file, timestamp)
+    Server->>ClientA: Broadcast Message (JSON: from, text, file, timestamp)
+
+    Note over ClientA,ClientB: Private Messaging (DMs)
+    ClientA->>Server: Private Message (JSON: to: "Bob", text)
+    Server->>ClientB: Direct Message Routing (JSON: from: "Alice", to: "Bob", text)
+    Server->>ClientA: Sender Echo (JSON: from: "Alice", to: "Bob", text, self: true)
+```
+
+---
+
+## ✨ Engineering Features
+
+### 1. Zero-Configuration Local Discovery
+* **Host Terminal QR Generator:** On server startup, Python's `qrcode` package generates a terminal-friendly ASCII QR code representing the server's local network URL. Connecting a mobile device is as simple as scanning the host's CLI.
+* **In-App Dynamic Invites:** Clicking "Share Room" fetches details from the `/api/server-info` API, rendering an SVG-based QR code on an overlay modal using a custom FastAPI response stream.
+
+### 2. Multi-Media File Sharing Pipeline
+* **Asynchronous Chunked Uploads:** Custom multipart file-upload REST endpoint (`/api/upload`) utilizing Python’s file stream utilities to store media with UUID names under static folders.
+* **Context-Aware Rendering:** The JavaScript client reads mime-types on incoming packets to render attachments inline:
+  * **Images:** Renders thumbnails that expand in a custom, touch-friendly Fullscreen Lightbox Modal on click.
+  * **Videos/Audio:** Generates native audio/video DOM players with controls.
+  * **Documents:** Formats clean, modern file-download cards featuring file sizes, filenames, and download icons.
+
+### 3. State-Synchronized Private Messaging
+* Users can toggle direct messages (DMs) by clicking on any online user in the sidebar.
+* The WebSocket server validates the recipient state and securely routes the payload. If the recipient disconnects mid-transit, the server automatically responds with a system error notification to the sender.
+
+### 4. Live Typing Indicators
+* Debounced keydown-listeners on the client emit brief typing state notifications to the server.
+* The server broadcasts active typists to all other clients, displaying a sleek, animated "typing..." dot overlay inside the main chat layout.
+
+### 5. Dynamic Profile Avatars
+* Users can upload custom images during registration or directly in the sidebar after joining.
+* **Hash-based Theme Fallback:** If a profile photo isn't provided, an avatar is generated inline. The app takes a 32-bit hash of the user's name and applies a modulo operation to assign one of 8 premium, double-tone linear gradients (`av-0` to `av-7`).
+
+---
+
+## 🛠️ Codebase Design & Patterns
 
 ```
-localchat/
-├── start.py                    ← Run this to start everything
-├── README.md
-│
+LoTalk/
+├── start.py                # Automation script (dependency checks, CLI QR code, launcher)
 ├── backend/
-│   ├── server.py               ← FastAPI + WebSocket server
-│   └── requirements.txt        ← Python dependencies
-│
+│   ├── server.py           # FastAPI server (WebSockets, ConnectionManager, API routes)
+│   └── requirements.txt    # Python backend dependencies
 └── frontend/
     ├── templates/
-    │   └── index.html          ← Main chat UI (served by backend)
+    │   └── index.html      # Glassmorphic single-page web UI
     └── static/
         ├── css/
-        │   └── style.css       ← All styles
+        │   └── style.css   # Responsive UI design system & CSS variables
         └── js/
-            └── chat.js         ← WebSocket client + UI logic
+            └── chat.js     # Single-State JS client (WebSocket listeners, UI bindings)
 ```
+
+### Backend: The `ConnectionManager` Pattern
+The backend uses a singleton-like `ConnectionManager` class to encapsulate all WebSocket transaction logical boundaries:
+* **Active Mapping:** Keeps a Python dictionary mapping `username -> WebSocket` alongside a concurrent list of typing users and custom avatars.
+* **Circular History Buffer:** Implements an in-memory buffer (`message_history`) constrained to a maximum size of 100 entries. New clients receive this array immediately upon connecting, preventing cold-starts.
+
+### Client: The Single-State Pattern
+To avoid standard DOM-query pollution and race conditions, the frontend `chat.js` uses a centralized `State` model:
+```javascript
+const State = {
+  username: "",
+  ws: null,
+  connected: false,
+  typingTimer: null,
+  isTyping: false,
+  pmTarget: null,       // null = public, "username" = private DM
+  typingUsers: new Set(),
+  avatarUrl: "",        // Profile URL from server
+  avatarFile: null,     // Local avatar file object
+  selectedFile: null,   // Local attachment file object
+};
+```
+All UI changes, WebSocket payloads, and file uploads are dispatched based on mutations to this core schema.
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Quick Start & Run Guide
 
-### Step 1 — Install Python
-Make sure Python 3.8+ is installed:
-```bash
-python --version
-```
+### Requirements
+* Python 3.8+ installed on your machine.
+* A local WiFi or Ethernet network.
 
-### Step 2 — Run the server
+### Instant Start (Recommended)
+From the project root directory, run:
 ```bash
-# From the localchat/ folder:
 python start.py
 ```
-This auto-installs all dependencies and starts the server.
+This script automatically:
+1. Installs all required dependencies defined in [requirements.txt](file:///d:/Project/LoTalk/backend/requirements.txt).
+2. Detects your computer's local IP address on the active network interface.
+3. Prints a QR code inside the terminal for quick mobile connections.
+4. Starts the ASGI server on port `8000`.
 
-**Or manually:**
+### Manual Start
+If you prefer to run steps manually:
 ```bash
+# 1. Install requirements
+pip install -r backend/requirements.txt
+
+# 2. Navigate to backend directory
 cd backend
-pip install -r requirements.txt
-python server.py
-```
 
-### Step 3 — Find your Local IP
-The server prints your IP automatically. Or find it manually:
-
-| OS      | Command              |
-|---------|----------------------|
-| Windows | `ipconfig`           |
-| Mac     | `ifconfig`           |
-| Linux   | `ip addr` or `hostname -I` |
-
-Look for something like `192.168.x.x`
-
-### Step 4 — Connect from other devices
-On any device on the **same WiFi**:
-```
-Open browser → http://192.168.x.x:8000
+# 3. Start Uvicorn pointing to FastAPI app
+python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
 ---
 
-## 🔧 How It Works
+## 🔧 Troubleshooting & Network Firewall Rules
 
-```
-[Phone/PC Browser]  ←──WebSocket──→  [Python Server]  ←──WebSocket──→  [Other Devices]
-        ↑                                    ↑
-    HTML+CSS+JS                     FastAPI + Uvicorn
-    (served by server)              (runs on your machine)
-```
+If other devices on your local network cannot connect to the server's IP address:
 
-1. Server runs on your machine and listens on all network interfaces (`0.0.0.0:8000`)
-2. Other devices connect via browser using your local IP
-3. WebSockets enable real-time bidirectional messaging
-4. Server manages all connections and broadcasts messages
+> [!WARNING]
+> **Windows Firewall Restrictions**  
+> Windows Defender Firewall frequently blocks incoming ports on public network profiles. You may need to create an inbound exception rule for Port 8000:
+> ```
+> Windows Defender Firewall -> Advanced Settings -> Inbound Rules -> New Rule -> Port -> TCP -> 8000 -> Allow the Connection
+> ```
 
----
-
-## ✨ Features
-
-| Feature              | Details                              |
-|----------------------|--------------------------------------|
-| Real-time messaging  | WebSockets (no page refresh needed)  |
-| Multiple devices     | Phones + PCs simultaneously          |
-| Private messages     | Click user → send DM                 |
-| Typing indicators    | See who's typing in real-time        |
-| Message timestamps   | Every message has a time             |
-| User list            | Live list of online users            |
-| Auto-scroll          | Chat always shows latest message     |
-| Notification sound   | Soft beep on incoming messages       |
-| Mobile responsive    | Works on phones and tablets          |
-| No internet needed   | 100% local network                   |
+| Symptom | Probable Cause | Action |
+|:---|:---|:---|
+| **Other devices can't connect** | Firewall blocks Port 8000 or devices are on different subnets | Add Firewall Rule; double check that the mobile client is on the exact same WiFi network |
+| **"Username Taken" during join** | The requested handle is already registered in the active server memory | Choose a unique username |
+| **Connection closes instantly** | Username validation regex failed (invalid characters) | Use letters, numbers, hyphens, and underscores only |
+| **Files fail to upload** | File size exceeds the configured upload buffer | Ensure attachments are under the 50MB file size limit (or 5MB for avatars) |
 
 ---
 
-## 🧪 Testing
+## 🚀 Performance & Production Checklist
 
-### Two phones on same WiFi:
-1. Start server on your PC
-2. On Phone 1: open `http://192.168.x.x:8000`, enter name, join
-3. On Phone 2: open same URL, enter different name, join
-4. Send messages — they appear on both phones instantly!
+If preparing this application to scale beyond local network environments, the following steps are recommended:
 
-### Phone + PC:
-1. Start server on PC
-2. Open `http://localhost:8000` on PC
-3. Open `http://192.168.x.x:8000` on phone (same WiFi)
-4. Chat between them
-
-### Two browser tabs (quick test):
-1. Open `http://localhost:8000` in two different browser tabs
-2. Enter different usernames in each tab
-3. Send messages — they appear in both
-
----
-
-## 🛠️ Troubleshooting
-
-| Problem                       | Solution                                       |
-|-------------------------------|------------------------------------------------|
-| Other device can't connect    | Check firewall — allow port 8000               |
-| "Username taken" error        | Choose a different username                    |
-| Messages not appearing        | Check browser console for WebSocket errors     |
-| Server won't start            | Run `pip install -r backend/requirements.txt`  |
-| Wrong IP shown                | Run `ipconfig` / `ifconfig` manually           |
-
-### Windows Firewall (if other devices can't connect):
-```
-Windows Defender Firewall → Allow an app → Add Python
-Or: New Inbound Rule → Port 8000 → Allow
-```
-
----
-
-## 🔐 Security Note
-This app has **no authentication** — anyone on your network can join.
-Only use on trusted networks (home WiFi, personal hotspot).
-
----
-
-## 🚀 Future Ideas
-- [ ] Persistent message history (SQLite)
-- [ ] File/image sharing
-- [ ] Multiple chat rooms
-- [ ] Password protection
-- [ ] User avatars/profile pictures
+* [ ] **Database Persistence:** Introduce SQLAlchemy with PostgreSQL or SQLite to persist messages beyond server cycles.
+* [ ] **Token-Based Authentication:** Implement OAuth2 with JWT tokens instead of plain connection query parameters.
+* [ ] **Horizontal Scaling:** Integrate a Redis Pub/Sub backend with FastAPI to broadcast WebSocket messages across multiple nodes behind a load balancer.
+* [ ] **P2P Video/Audio Sharing:** Leverage WebRTC signaling via the current WebSocket broker for direct peer-to-peer audio/video streaming.
+* [ ] **Containerization:** Add a multi-stage Dockerfile packaging the Python backend and static frontend.
